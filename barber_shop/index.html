@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Barbershop Admin</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+<center>
+    <a href="admin.html">ADMIN</a>
+    <a href="counter.html">COUNTER</a>
+    <a href="balance-sheet.html">BALANCE SHEET</a>
+    <a href="custamerdata.html">CUSTOMER DATA</a>
+</center>
+<div class="container mt-4">
+    <h1 class="text-center">Barbershop Admin Page</h1>
+
+    <!-- Total Customers Section -->
+    <div class="row mb-3">
+        <div class="col-md-6">
+            <h4>Total Customers: <span id="total-customers">0</span></h4>
+        </div>
+    </div>
+
+    <!-- Total Balance Section -->
+    <div class="row mb-3">
+        <div class="col-md-6">
+            <label for="select-date" class="form-label">Select Date:</label>
+            <input type="date" id="select-date" class="form-control">
+        </div>
+    </div>
+
+    <!-- Today's Revenue and Balance Section -->
+    <div class="row mb-3">
+        <div class="col-md-6">
+            <h4>Today's Revenue: <span id="today-revenue">₹0</span></h4>
+        </div>
+        <div class="col-md-6">
+            <h4>Total Balance: <span id="total-balance">₹0</span></h4>
+        </div>
+    </div>
+
+    <!-- Alert Section -->
+    <div class="alert alert-warning" id="alert-section" style="display: none;">
+        <h4>Customers to Remind</h4>
+        <ul id="alert-list" class="list-group"></ul>
+    </div>
+
+    <!-- Barber Revenue Section -->
+    <h4>Barber Revenue</h4>
+    <table class="table table-bordered">
+        <thead>
+            <tr>
+                <th>Barber Name</th>
+                <th>Revenue (₹)</th>
+            </tr>
+        </thead>
+        <tbody id="barber-revenue"></tbody>
+    </table>
+
+    <!-- Customer Data Section -->
+    <h4>Customer Data</h4>
+    <table class="table table-bordered">
+        <thead>
+            <tr>
+                <th>Customer Name</th>
+                <th>Barber Name</th>
+                <th>Revenue (₹)</th>
+                <th>Last Visit</th>
+            </tr>
+        </thead>
+        <tbody id="customer-data"></tbody>
+    </table>
+
+    <!-- Add Barber Section -->
+    <div class="mt-4">
+        <h4>Add Barber</h4>
+        <div class="input-group">
+            <input type="text" id="barber-name" class="form-control" placeholder="Enter Barber Name">
+            <button id="add-barber" class="btn btn-primary">Add Barber</button>
+        </div>
+        <ul class="list-group mt-3" id="barber-list"></ul>
+    </div>
+</div>
+
+<script>
+    // Elements
+    const barberInput = document.getElementById("barber-name");
+    const addBarberBtn = document.getElementById("add-barber");
+    const barberList = document.getElementById("barber-list");
+    const selectDate = document.getElementById("select-date");
+    const totalBalance = document.getElementById("total-balance");
+    const todayRevenue = document.getElementById("today-revenue");
+    const barberRevenueTable = document.getElementById("barber-revenue");
+    const customerDataTable = document.getElementById("customer-data");
+    const alertSection = document.getElementById("alert-section");
+    const alertList = document.getElementById("alert-list");
+    const totalCustomers = document.getElementById("total-customers");
+
+    // Data Storage
+    const barbers = JSON.parse(localStorage.getItem("barbers")) || [];
+    const sales = JSON.parse(localStorage.getItem("sales")) || [];
+
+    // Functions
+    function displayBarbers() {
+        barberList.innerHTML = barbers.map(barber => `<li class="list-group-item">${barber}</li>`).join("");
+    }
+
+    function updateTables(date) {
+        // Filter sales data by date
+        const filteredSales = sales.filter(sale => sale.date === date);
+
+        // Update total balance
+        const totalBalanceAmount = sales.reduce((sum, sale) => sum + (sale.revenue || 0), 0);
+        totalBalance.textContent = `₹${totalBalanceAmount}`;
+
+        // Update today's revenue
+        const todayRevenueAmount = filteredSales.reduce((sum, sale) => sum + (sale.revenue || 0), 0);
+        todayRevenue.textContent = `₹${todayRevenueAmount}`;
+
+        // Update barber revenue table
+        const barberRevenue = barbers.map(barber => {
+            const barberTotal = filteredSales
+                .filter(sale => sale.barber === barber)
+                .reduce((sum, sale) => sum + (sale.revenue || 0), 0);
+            return { barber, revenue: barberTotal };
+        });
+
+        barberRevenueTable.innerHTML = barberRevenue
+            .map(({ barber, revenue }) => `<tr><td>${barber}</td><td>₹${revenue}</td></tr>`)
+            .join("");
+
+        // Update customer data table
+        customerDataTable.innerHTML = filteredSales
+            .map(sale => `<tr><td>${sale.customer}</td><td>${sale.barber}</td><td>₹${sale.revenue}</td><td>${sale.date}</td></tr>`)
+            .join("");
+
+        // Update total customers
+        const customerSet = new Set(filteredSales.map(sale => sale.customer));
+        totalCustomers.textContent = customerSet.size;
+
+        // Show customers to remind
+        const today = new Date();
+        const customersToRemind = sales.filter(sale => {
+            const lastVisit = new Date(sale.date);
+            const daysSinceVisit = Math.floor((today - lastVisit) / (1000 * 60 * 60 * 24));
+            return daysSinceVisit > 30;
+        });
+
+        if (customersToRemind.length > 0) {
+            alertSection.style.display = "block";
+            alertList.innerHTML = customersToRemind.map(customer => `
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                    ${customer.customer} (Last Visit: ${customer.date})
+                    <button class="btn btn-success btn-sm" onclick="sendWhatsAppMessage('${customer.customer}')">Send Message</button>
+                </li>
+            `).join("");
+        } else {
+            alertSection.style.display = "none";
+        }
+    }
+
+    function addBarber() {
+        const barberName = barberInput.value.trim();
+        if (barberName && !barbers.includes(barberName)) {
+            barbers.push(barberName);
+            localStorage.setItem("barbers", JSON.stringify(barbers));
+            displayBarbers();
+            barberInput.value = "";
+        }
+    }
+
+    function sendWhatsAppMessage(customerName) {
+        const message = `Hello ${customerName}, we noticed it's been a month since your last visit to our barbershop. We look forward to seeing you again!`;
+        const url = `https://wa.me/?text=${encodeURIComponent(message)}`;
+        window.open(url, "_blank");
+    }
+
+    // Event Listeners
+    addBarberBtn.addEventListener("click", addBarber);
+    selectDate.addEventListener("change", () => {
+        const date = selectDate.value;
+        if (date) {
+            updateTables(date);
+        }
+    });
+
+    // Initialize
+    displayBarbers();
+    const today = new Date().toISOString().split("T")[0];
+    selectDate.value = today;
+    updateTables(today);
+</script>
+</body>
+</html>
