@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Counter Page</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+
+    <center>
+        <a href="admin.html">ADMIN</a>
+        <a href="counter.html">COUNTER</a>
+        <a href="balance-sheet.html">BALANCE SHEET</a>
+        <a href="custamerdata.html">CUSTAMER DATA</a>
+    </center>
+
+    <div class="container mt-4">
+        <h1 class="text-center">Counter Page</h1>
+        
+        <!-- Add Customer Form -->
+        <div class="card p-4">
+            <h4>Add Customer</h4>
+            <div class="mb-3">
+                <label for="barber-select" class="form-label">Select Barber:</label>
+                <select id="barber-select" class="form-select">
+                    <option value="">Select Barber</option>
+                </select>
+            </div>
+            <div class="mb-3">
+                <label for="customer-name" class="form-label">Customer Name:</label>
+                <input type="text" id="customer-name" class="form-control" placeholder="Enter Customer Name">
+            </div>
+            <div class="mb-3">
+                <label for="customer-contact" class="form-label">Customer Contact:</label>
+                <input type="text" id="customer-contact" class="form-control" placeholder="Enter Customer Contact">
+            </div>
+            <div class="mb-3">
+                <label for="revenue" class="form-label">Revenue (₹):</label>
+                <input type="number" id="revenue" class="form-control" placeholder="Enter Revenue Amount">
+            </div>
+            <div class="mb-3">
+                <label for="paid-amount" class="form-label">Paid Amount (₹):</label>
+                <input type="number" id="paid-amount" class="form-control" placeholder="Enter Paid Amount">
+            </div>
+            <div class="mb-3">
+                <label for="date" class="form-label">Date:</label>
+                <input type="date" id="date" class="form-control">
+            </div>
+            <button id="add-customer" class="btn btn-primary">Add Customer</button>
+        </div>
+    </div>
+
+    <script>
+        // Elements
+const barberSelect = document.getElementById("barber-select");
+const customerNameInput = document.getElementById("customer-name");
+const customerContactInput = document.getElementById("customer-contact");
+const revenueInput = document.getElementById("revenue");
+const paidAmountInput = document.getElementById("paid-amount");
+const dateInput = document.getElementById("date");
+const addCustomerBtn = document.getElementById("add-customer");
+
+// Data Storage
+const barbers = JSON.parse(localStorage.getItem("barbers")) || [];
+const sales = JSON.parse(localStorage.getItem("sales")) || [];
+
+// Functions
+function populateBarbers() {
+    barberSelect.innerHTML = `<option value="">Select Barber</option>`; // Default option
+    barberSelect.innerHTML += barbers.map(barber => `<option value="${barber}">${barber}</option>`).join("");
+}
+
+function addCustomer() {
+    const barber = barberSelect.value;
+    const customerName = customerNameInput.value.trim();
+    const customerContact = customerContactInput.value.trim();
+    const revenue = parseFloat(revenueInput.value);
+    const paidAmount = parseFloat(paidAmountInput.value);
+    const date = dateInput.value;
+
+    if (barber && customerName && customerContact && revenue && paidAmount && date) {
+        // Add new sale entry
+        sales.push({ barber, customer: customerName, contact: customerContact, revenue, paidAmount, date });
+        localStorage.setItem("sales", JSON.stringify(sales));
+
+        alert("Customer added successfully!");
+        customerNameInput.value = "";
+        customerContactInput.value = "";
+        revenueInput.value = "";
+        paidAmountInput.value = "";
+        dateInput.value = "";
+    } else {
+        alert("Please fill all fields!");
+    }
+}
+
+// Event Listeners
+addCustomerBtn.addEventListener("click", addCustomer);
+
+// Initialize
+populateBarbers();
+const today = new Date().toISOString().split("T")[0];
+dateInput.value = today; // Default to today's date
+
+    </script>
+</body>
+</html>

@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Customer Balance Sheet</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+
+    <center>
+        <a href="admin.html">ADMIN</a>
+        <a href="counter.html">COUNTER</a>
+        <a href="balance-sheet.html">BALANCE SHEET</a>
+        <a href="custamerdata.html">CUSTOMER DATA</a>
+    </center>
+
+    <div class="container mt-4">
+        <h1 class="text-center">Customer Balance Sheet</h1>
+        
+        <!-- Total Customer Balance Section -->
+        <div class="card p-4 mb-4">
+            <h4>Total Customer Balance: <span id="totalBalance">₹0.00</span></h4>
+        </div>
+
+        <!-- Customer Balance Table -->
+        <div class="card p-4">
+            <h4>Customer Balances</h4>
+            <div class="table-responsive">
+                <table class="table table-bordered">
+                    <thead>
+                        <tr>
+                            <th>Customer Name</th>
+                            <th>Contact Number</th>
+                            <th>Barber</th>
+                            <th>Balance Amount (₹)</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="balance-sheet">
+                        <!-- Dynamic Rows -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for Payment -->
+    <div class="modal fade" id="payModal" tabindex="-1" aria-labelledby="payModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="payModalLabel">Pay Balance</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="payForm">
+                        <div class="mb-3">
+                            <label for="payAmount" class="form-label">Amount to Pay (₹):</label>
+                            <input type="number" id="payAmount" class="form-control" min="1" required>
+                        </div>
+                        <button type="submit" class="btn btn-success">Pay</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Elements
+        const balanceSheet = document.getElementById("balance-sheet");
+        const totalBalanceElement = document.getElementById("totalBalance");
+        let currentCustomerIndex = null;
+
+        // Retrieve or Initialize Sales Data
+        const sales = JSON.parse(localStorage.getItem("sales")) || [];
+
+        // Group Customer Data by Name and Contact
+        const groupedData = sales.reduce((acc, sale) => {
+            const key = `${sale.customer}-${sale.contact}`;
+            if (!acc[key]) {
+                acc[key] = {
+                    customer: sale.customer,
+                    contact: sale.contact,
+                    barber: sale.barber,
+                    totalRevenue: 0,
+                    totalPaid: 0,
+                };
+            }
+            acc[key].totalRevenue += sale.revenue;
+            acc[key].totalPaid += sale.paidAmount;
+            return acc;
+        }, {});
+
+        // Convert grouped data into an array
+        const balanceData = Object.values(groupedData).map(item => ({
+            ...item,
+            balance: item.totalRevenue - item.totalPaid,
+        }));
+
+        // Calculate the total customer balance
+        function calculateTotalBalance() {
+            const totalBalance = balanceData.reduce((sum, entry) => sum + entry.balance, 0);
+            totalBalanceElement.textContent = `₹${totalBalance.toFixed(2)}`;
+        }
+
+        // Render Balance Sheet
+        function renderBalanceSheet() {
+            balanceSheet.innerHTML = balanceData.map((entry, index) => {
+                // If balance is 0 or less, remove the customer
+                if (entry.balance <= 0) {
+                    balanceData.splice(index, 1);
+                    return ''; // Skip rendering this customer
+                }
+                return `
+                    <tr>
+                        <td>${entry.customer}</td>
+                        <td>${entry.contact}</td>
+                        <td>${entry.barber}</td>
+                        <td>₹${entry.balance.toFixed(2)}</td>
+                        <td>
+                            <button class="btn btn-primary btn-sm pay-btn" data-index="${index}" data-bs-toggle="modal" data-bs-target="#payModal">Pay</button>
+                            <button class="btn btn-danger btn-sm delete-btn" data-index="${index}">Delete</button>
+                        </td>
+                    </tr>
+                `;
+            }).join("");
+            calculateTotalBalance(); // Update total balance after rendering the sheet
+        }
+
+        // Handle Customer Payment
+        function payBalance(event) {
+            event.preventDefault();
+            const payAmount = parseFloat(document.getElementById("payAmount").value);
+            const index = currentCustomerIndex;
+
+            if (payAmount > 0) {
+                // Update local storage data
+                const customerKey = `${balanceData[index].customer}-${balanceData[index].contact}`;
+                sales.forEach(sale => {
+                    const key = `${sale.customer}-${sale.contact}`;
+                    if (key === customerKey) {
+                        sale.paidAmount += payAmount;
+                    }
+                });
+
+                // Save updated sales data
+                localStorage.setItem("sales", JSON.stringify(sales));
+
+                // Update balance sheet data and re-render
+                balanceData[index].totalPaid += payAmount;
+                balanceData[index].balance -= payAmount;
+
+                // Check if the balance is now zero or less and remove customer if so
+                if (balanceData[index].balance <= 0) {
+                    balanceData.splice(index, 1); // Remove the customer from balance data
+                }
+
+                renderBalanceSheet();
+
+                // Reset form and close modal
+                document.getElementById("payForm").reset();
+                bootstrap.Modal.getInstance(document.getElementById("payModal")).hide();
+            } else {
+                alert("Invalid payment amount!");
+            }
+        }
+
+        // Handle Customer Deletion Permanently
+        function deleteCustomer(index) {
+            // Remove the customer from balance data
+            const customer = balanceData[index];
+            balanceData.splice(index, 1);
+
+            // Update local storage sales data by removing all transactions related to the deleted customer
+            const customerKey = `${customer.customer}-${customer.contact}`;
+            const updatedSales = sales.filter(sale => `${sale.customer}-${sale.contact}` !== customerKey);
+
+            // Save updated sales data to localStorage
+            localStorage.setItem("sales", JSON.stringify(updatedSales));
+
+            // Re-render the balance sheet
+            renderBalanceSheet();
+        }
+
+        // Event Listeners
+        balanceSheet.addEventListener("click", event => {
+            if (event.target.classList.contains("pay-btn")) {
+                currentCustomerIndex = event.target.dataset.index;
+            }
+            if (event.target.classList.contains("delete-btn")) {
+                const index = event.target.dataset.index;
+                deleteCustomer(index); // Permanently delete customer data
+            }
+        });
+
+        document.getElementById("payForm").addEventListener("submit", payBalance);
+
+        // Initialize Balance Sheet
+        renderBalanceSheet();
+    </script>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
